@@ -147,6 +147,14 @@ build_dependencies() {
 #
 # Usage: run_emulator
 run_emulator() {
+    [[ ! -f ./Settings.toml ]] && log \
+        "selected-library = 0" \
+	      "[[libraries]]" \
+	      'name = "Example"' \
+	      'path = "/opt/ao3-reader/library"' \
+	      'mode = "database"' \
+        > ./Settings.toml
+
     export LD_LIBRARY_PATH="/opt/ao3-reader/libs"
     cargo run \
         --package emulator \
