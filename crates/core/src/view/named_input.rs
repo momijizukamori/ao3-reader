@@ -97,6 +97,11 @@ impl View for NamedInput {
                 false
             },
             Event::Gesture(GestureEvent::Tap(center)) | Event::Gesture(GestureEvent::HoldFingerShort(center, _)) => {
+                // If we tap outside of the named input or the related keyboard, we
+                // should close the named input
+                // TODO - we should just... have a related keyboard rect for named inputs,
+                // instead of using a keyboard saved to the context object :(
+                // (Global objects are my sworn nemisis)
                 if !self.rect.includes(center) && !context.kb_rect.includes(center) {
                     if !context.kb_rect.is_empty() {
                         bus.push_back(Event::Close(self.view_id));

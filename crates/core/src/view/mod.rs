@@ -11,6 +11,7 @@
 
 pub mod common;
 pub mod filler;
+pub mod fave;
 pub mod image;
 pub mod icon;
 pub mod label;
@@ -97,13 +98,17 @@ pub type Bus = VecDeque<Event>;
 pub type Hub = Sender<Event>;
 
 pub trait View: Downcast + DynClone {
-    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool;
-    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, fonts: &mut Fonts);
     fn rect(&self) -> &Rectangle;
     fn rect_mut(&mut self) -> &mut Rectangle;
     fn children(&self) -> &Vec<Box<dyn View>>;
     fn children_mut(&mut self) -> &mut Vec<Box<dyn View>>;
     fn id(&self) -> Id;
+
+    #[allow(unused_variables)]
+    fn render(&self, fb: &mut dyn Framebuffer, rect: Rectangle, fonts: &mut Fonts) {}
+
+    #[allow(unused_variables)]
+    fn handle_event(&mut self, evt: &Event, hub: &Hub, bus: &mut Bus, rq: &mut RenderQueue, context: &mut Context) -> bool { false }
 
     fn render_rect(&self, _rect: &Rectangle) -> Rectangle {
         *self.rect()

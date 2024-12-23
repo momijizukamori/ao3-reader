@@ -713,10 +713,10 @@ impl Home {
             let sp_rect = *self.child(self.shelf_index+1).rect() - pt!(0, delta_y);
             let search_bar = SearchBar::new(rect![self.rect.min.x, sp_rect.max.y,
                                                   self.rect.max.x,
+                                                    // Search is ~ small_height tall
                                                   sp_rect.max.y + delta_y - thickness],
                                             ViewId::HomeSearchInput,
-                                            "Title, author, series",
-                                            "", context);
+                                            "Title, author, series");
             self.children.insert(self.shelf_index+1, Box::new(search_bar) as Box<dyn View>);
 
             let separator = Filler::new(sp_rect, BLACK);

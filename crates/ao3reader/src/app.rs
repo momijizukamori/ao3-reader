@@ -288,9 +288,8 @@ pub fn run() -> Result<(), Error> {
     let mut tasks: Vec<Task> = Vec::new();
     let mut history: Vec<HistoryItem> = Vec::new();
     let mut rq = RenderQueue::new();
-    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &mut rq, &mut context));
-    // let mut view: Box<dyn View> = Box::new(Works::new(context.fb.rect(), base_path.to_string(), &tx,
-    //                                                  &mut rq, &mut context)?);
+    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &mut rq,
+            context.settings.time_format.clone(), &mut context.fonts, &mut context.battery, context.settings.frontlight, context.client.logged_in, &context.settings.ao3.faves));
 
     let mut updating = Vec::new();
     let current_dir = env::current_dir()?;

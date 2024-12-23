@@ -1,3 +1,7 @@
+// This feature flag allows us to exclude the unit tests from the coverage
+// report, so they do not skew the metrics of line coverage
+#![feature(coverage_attribute)]
+
 #[macro_use] pub mod geom;
 
 mod unit;

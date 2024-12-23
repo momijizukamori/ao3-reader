@@ -104,10 +104,10 @@ impl Dictionary {
                                   context.settings.time_format.clone(), &mut context.fonts, &mut context.battery, context.settings.frontlight);
         children.push(Box::new(top_bar) as Box<dyn View>);
 
+        // Search is ~ small_height tall
         let search_bar = SearchBar::new(rect![rect.min.x, rect.min.y + small_height + big_thickness,
                                               rect.max.x, rect.min.y + 2 * small_height - small_thickness],
-                                        ViewId::DictionarySearchInput,
-                                        "", query, context);
+                                        ViewId::DictionarySearchInput, query);
         children.push(Box::new(search_bar) as Box<dyn View>);
 
         let separator = Filler::new(rect![rect.min.x, rect.min.y + 2 * small_height - small_thickness,
@@ -274,7 +274,7 @@ impl Dictionary {
             let number = id == Some(ViewId::GoToPageInput);
             let index = locate::<BottomBar>(self).unwrap() + 1;
 
-            let keyboard = Keyboard::new(&mut kb_rect, number, context);
+            let keyboard = Keyboard::new(&mut kb_rect, number, &context.keyboard_layouts, context.settings.keyboard_layout.clone());
             self.children.insert(index, Box::new(keyboard) as Box<dyn View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,

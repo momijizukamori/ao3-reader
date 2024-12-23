@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use fxhash::FxHashMap;
 use lazy_static::lazy_static;
 use serde::Deserialize;
@@ -5,14 +7,16 @@ use crate::device::CURRENT_DEVICE;
 use crate::framebuffer::{Framebuffer, UpdateMode};
 use crate::gesture::GestureEvent;
 use crate::input::DeviceEvent;
-use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, KeyboardEvent, EntryId, TextKind};
+use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue, RenderData, KeyboardEvent, EntryId, TextKind, THICKNESS_MEDIUM};
 use super::key::{Key, KeyKind};
 use super::BIG_BAR_HEIGHT;
 use crate::color::KEYBOARD_BG;
 use crate::font::Fonts;
 use crate::context::Context;
-use crate::geom::Rectangle;
+use crate::geom::{Rectangle, LinearDir};
 use crate::unit::scale_by_dpi;
+use crate::view::filler::Filler;
+use crate::color::BLACK;
 
 const PADDING_RATIO: f32 = 0.06;
 
@@ -23,6 +27,47 @@ pub struct Layout {
     pub outputs: [Vec<Vec<char>>; 4],
     pub keys: Vec<Vec<KeyKind>>,
     pub widths: Vec<Vec<f32>>,
+}
+
+impl Default for Layout {
+    fn default() -> Self {
+        Layout {
+            name: "Phone Pad".to_string(),
+            outputs: [
+                vec![vec!['1', '2', '3'],
+                     vec!['4', '5', '6'],
+                     vec!['7', '8', '9'],
+                     vec!['*', '0', '#']],
+
+                vec![vec!['!', '.', '#'],
+                     vec!['$', '%', '^'],
+                     vec!['&', '*', '/'],
+                     vec!['-', '=', '+']],
+
+                vec![vec!['1', '2', '3'],
+                     vec!['4', '5', '6'],
+                     vec!['7', '8', '9'],
+                     vec!['*', '0', '#']],
+
+                vec![vec!['{', '}', '|'],
+                     vec!['[', ']', '\\'],
+                     vec!['<', '>', '?'],
+                     vec!['(', ')', '@']]
+            ],
+            keys: vec![
+                vec![KeyKind::Output('▢'), KeyKind::Output('▢'), KeyKind::Output('▢'), KeyKind::Delete(LinearDir::Backward)],
+                vec![KeyKind::Output('▢'), KeyKind::Output('▢'), KeyKind::Output('▢'), KeyKind::Move(LinearDir::Forward)],
+                vec![KeyKind::Output('▢'), KeyKind::Output('▢'), KeyKind::Output('▢'), KeyKind::Move(LinearDir::Backward)],
+                vec![KeyKind::Output('▢'), KeyKind::Output('▢'), KeyKind::Output('▢'), KeyKind::Return]
+            ],
+            widths: vec![
+                vec![1.0, 1.0, 1.0, 1.0],
+                vec![1.0, 1.0, 1.0, 1.0],
+                vec![1.0, 1.0, 1.0, 1.0],
+                vec![1.0, 1.0, 1.0, 1.0]
+            ]
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -43,56 +88,65 @@ pub struct Keyboard {
 }
 
 impl Keyboard {
-    pub fn new(rect: &mut Rectangle, number: bool, context: &mut Context) -> Keyboard {
-        let id = ID_FEEDER.next();
-        let mut children = Vec::new();
+    pub fn new_empty(rect: &mut Rectangle) -> Keyboard {
+        Keyboard {
+            id: ID_FEEDER.next(),
+            rect: *rect,
+            children: Vec::new(),
+            layout: Layout::default(),
+            state: State::default(),
+            combine_buffer: String::new(),
+        }
+    }
+
+    pub fn new(rect: &mut Rectangle, number: bool, keyboard_layouts: &BTreeMap<String, Layout>, keyboard_name: String) -> Keyboard {
+        let mut keyboard = Keyboard::new_empty(rect);
+
         let dpi = CURRENT_DEVICE.dpi;
+        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
 
-        let layout = context.keyboard_layouts[&context.settings.keyboard_layout].clone();
-
-        let mut state = State::default();
+        keyboard.layout = keyboard_layouts[&keyboard_name].clone();
 
         if number {
-            state.alternate = 2;
+            keyboard.state.alternate = 2;
         }
 
         let mut level = 0;
 
-        if state.shift > 0 {
+        if keyboard.state.shift > 0 {
             level += 1;
         }
 
-        if state.alternate > 0 {
+        if keyboard.state.alternate > 0 {
             level += 2;
         }
 
-        let max_width = layout.widths.iter().map(|row| (row.len() + 1) as f32 * PADDING_RATIO + row.iter().sum::<f32>())
+        let max_width = keyboard.layout.widths.iter().map(|row| (row.len() + 1) as f32 * PADDING_RATIO + row.iter().sum::<f32>())
                               .max_by(|a, b| a.partial_cmp(&b).expect("Found NaNs"))
                               .expect("Missing row widths");
 
-        let kh_1 = (rect.width() as f32) / max_width;
-        let rows_count = layout.keys.len();
-        let kh_2 = (rect.height() as f32) / (rows_count as f32 + PADDING_RATIO * (rows_count + 1) as f32);
+        let kh_1 = (keyboard.rect.width() as f32) / max_width;
+        let rows_count = keyboard.layout.keys.len();
+        let kh_2 = (keyboard.rect.height() as f32) / (rows_count as f32 + PADDING_RATIO * (rows_count + 1) as f32);
         let key_height = kh_1.min(kh_2);
         let padding = PADDING_RATIO * key_height;
 
         let rows_height = key_height * rows_count as f32 + padding * (rows_count + 1) as f32;
         let big_height = scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32;
-        let height_gap = (rect.height() - rows_height.round() as u32) / big_height as u32;
-        rect.min.y += height_gap as i32 * big_height;
-        context.kb_rect = *rect;
+        let height_gap = (keyboard.rect.height() - rows_height.round() as u32) / big_height as u32;
+        keyboard.rect.min.y += height_gap as i32 * big_height;
 
-        let start_y = rect.min.y as f32 + padding + (rect.height() as f32 - rows_height) / 2.0;
+        let start_y = keyboard.rect.min.y as f32 + padding + (keyboard.rect.height() as f32 - rows_height) / 2.0;
 
-        for (i, row) in layout.keys.iter().enumerate() {
+        for (i, row) in keyboard.layout.keys.iter().enumerate() {
             let y = start_y + i as f32 * (padding + key_height);
-            let row_width = (layout.widths[i].len() + 1) as f32 * padding + layout.widths[i].iter().sum::<f32>() * key_height;
-            let start_x = rect.min.x as f32 + padding + (rect.width() as f32 - row_width) / 2.0;
+            let row_width = (keyboard.layout.widths[i].len() + 1) as f32 * padding + keyboard.layout.widths[i].iter().sum::<f32>() * key_height;
+            let start_x = keyboard.rect.min.x as f32 + padding + (keyboard.rect.width() as f32 - row_width) / 2.0;
             let mut dx = 0.0;
             let mut dj = 0;
 
             for (j, kind) in row.iter().enumerate() {
-                let key_width = layout.widths[i][j] * key_height;
+                let key_width = keyboard.layout.widths[i][j] * key_height;
                 let x = start_x + dx;
                 dx += key_width + padding;
                 let key_rect = rect![x.round() as i32,
@@ -100,25 +154,35 @@ impl Keyboard {
                                      (x + key_width).round() as i32,
                                      (y + key_height).round() as i32];
                 let kind = match kind {
-                    KeyKind::Output(c) if *c != ' ' => KeyKind::Output(layout.outputs[level][i][j-dj]),
+                    KeyKind::Output(c) if *c != ' ' => KeyKind::Output(keyboard.layout.outputs[level][i][j-dj]),
                     _ => { dj = j + 1; *kind },
                 };
                 let mut key = Key::new(key_rect, kind);
                 if number && kind == KeyKind::Alternate {
                     key.lock();
                 }
-                children.push(Box::new(key) as Box<dyn View>);
+                keyboard.children.push(Box::new(key) as Box<dyn View>);
             }
         }
 
-        Keyboard {
-            id,
-            rect: *rect,
-            children,
-            layout,
-            state,
-            combine_buffer: String::new(),
-        }
+
+        let separator = Filler::new(rect![
+            keyboard.rect.min.x, keyboard.rect.min.y - thickness,
+            keyboard.rect.max.x, keyboard.rect.min.y], BLACK);
+        keyboard.children.push(Box::new(separator) as Box<dyn View>);
+
+        keyboard
+    }
+
+    pub fn add_to_context(&self, context: &mut Context) {
+        // Looks to be used ONLY by named inputs to determine if they should close
+        // when tapping on the background.
+        // Only NamedInput that currently works for AO3 Reader is the GoToPage in Works
+        // which is activated by tapping the Page {i} out of {n} label on any list of works
+        // TODO - transition NamedInputs so they open the keyboard alongside them,
+        // and save the keyboard rect to the NamedInput so that we don't have to use
+        // a global context
+        context.kb_rect = self.rect;
     }
 
     fn update(&mut self, rq: &mut RenderQueue) {
@@ -247,7 +311,7 @@ impl View for Keyboard {
                     context.settings.keyboard_layout = name.to_string();
                     // FIXME: the keyboard's height might change, in which case,
                     // we shall notify the root view.
-                    *self = Keyboard::new(&mut self.rect, self.state.alternate == 2, context);
+                    *self = Keyboard::new(&mut self.rect, self.state.alternate == 2, &context.keyboard_layouts, name.to_string());
                     rq.add(RenderData::new(self.id, self.rect, UpdateMode::Gui));
                 }
                 true

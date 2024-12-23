@@ -1415,7 +1415,7 @@ impl Reader {
                 self.children.insert(index, Box::new(separator) as Box<dyn View>);
             }
 
-            let keyboard = Keyboard::new(&mut kb_rect, number, context);
+            let keyboard = Keyboard::new(&mut kb_rect, number, &context.keyboard_layouts, context.settings.keyboard_layout.clone());
             self.children.insert(index, Box::new(keyboard) as Box<dyn View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,
@@ -1566,8 +1566,9 @@ impl Reader {
                                 self.rect.max.x, self.rect.max.y - 2 * small_height + big_thickness];
             let y_min = sp_rect.max.y;
             let rect = rect![self.rect.min.x, y_min,
+                            // Search is ~ small_height tall
                              self.rect.max.x, y_min + small_height - thickness];
-            let search_bar = SearchBar::new(rect, ViewId::ReaderSearchInput, "", "", context);
+            let search_bar = SearchBar::new(rect, ViewId::ReaderSearchInput, "");
             self.children.insert(index, Box::new(search_bar) as Box<dyn View>);
 
             let separator = Filler::new(sp_rect, BLACK);
@@ -1662,9 +1663,9 @@ impl Reader {
                     let search_bar = SearchBar::new(rect![self.rect.min.x,
                                                           self.rect.max.y - 2 * small_height + big_thickness,
                                                           self.rect.max.x,
+                                                            // Search is ~ small_height tall
                                                           self.rect.max.y - small_height - small_thickness],
-                                                    ViewId::ReaderSearchInput,
-                                                    "", &s.query, context);
+                                                    ViewId::ReaderSearchInput, &s.query);
                     self.children.insert(index, Box::new(search_bar) as Box<dyn View>);
                     index += 1;
                 }

@@ -229,7 +229,8 @@ impl Works {
                 Some(ViewId::GoToPageInput) => true,
                 _ => false,
             };
-            let keyboard = Keyboard::new(&mut kb_rect, number, context);
+            let keyboard = Keyboard::new(&mut kb_rect, number, &context.keyboard_layouts, context.settings.keyboard_layout.clone());
+            keyboard.add_to_context(context);
             self.children.push(Box::new(keyboard) as Box<dyn View>);
 
             let separator = Filler::new(rect![self.rect.min.x, kb_rect.min.y - thickness,
@@ -332,12 +333,11 @@ impl Works {
                 return;
             }
 
+            // Search is ~ small_height tall
             let search_bar = SearchBar::new(rect![self.rect.min.x, self.rect.max.y - delta_y - thickness,
                                                   self.rect.max.x,
                                                   self.rect.max.y],
-                                            ViewId::SiteTextSearchInput,
-                                            "Title, author, series",
-                                            "", context);
+                                            ViewId::SiteTextSearchInput, "Title, author, series");
             self.children.insert(self.shelf_index+1, Box::new(search_bar) as Box<dyn View>);
 
             let separator = Filler::new(rect![self.rect.min.x, self.rect.max.y - delta_y,

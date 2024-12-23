@@ -249,8 +249,8 @@ fn main() -> Result<(), Error> {
 
     let mut history: Vec<Box<dyn View>> = Vec::new();
     let mut rq = RenderQueue::new();
-    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(),
-                                                     &mut rq, &mut context));
+    let mut view: Box<dyn View> = Box::new(Home::new(context.fb.rect(), &mut rq,
+            context.settings.time_format.clone(), &mut context.fonts, &mut context.battery, context.settings.frontlight, context.client.logged_in, &context.settings.ao3.faves));
 
     let mut updating = Vec::new();
 
