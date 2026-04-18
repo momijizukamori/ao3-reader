@@ -84,6 +84,7 @@ pub fn scrape_inner_text_to_html(frag: &Html, select: &str) -> String {
 
 pub fn scrape_login_csrf(frag: &Html) -> String {
     let token = Selector::parse(r#"form.new_user input[name="authenticity_token"]"#).unwrap();
+    println!("HTML inner: {}", frag.root_element().inner_html()); // DO NOT REMOVE - causes thread panic
     let input = frag.select(&token).next().unwrap();
     input.value().attr("value").unwrap().to_string()
 }
